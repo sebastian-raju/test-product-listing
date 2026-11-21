@@ -59,12 +59,7 @@ function ProductsContent({ table }: { readonly table: ProductsTableViewModel }):
 
   return (
     <div className="flex flex-col gap-4">
-      <ProductsTable
-        products={page.items}
-        sort={table.sort}
-        onSortChange={table.toggleSort}
-        isUpdating={table.isUpdating}
-      />
+      <ProductsTable products={page.items} sort={table.sort} onSortChange={table.toggleSort} />
       <Pagination page={page.page} totalPages={page.totalPages} onPageChange={table.setPage} />
     </div>
   );

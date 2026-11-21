@@ -3,10 +3,10 @@ import { useMemo } from 'react';
 import { useDebouncedValue } from '@/shared/hooks/useDebouncedValue';
 import { paginate, type Page } from '@/shared/utils/paginate';
 
-import { type FetchProductsParams } from '../api/productsApi';
 import { PRODUCTS_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from '../constants';
 import { type Product, type ProductSort, type ProductSortField } from '../types/product';
 import { filterByTitle } from '../utils/filterByTitle';
+import { sortProducts } from '../utils/sortProducts';
 
 import { useProductsQuery } from './useProductsQuery';
 import { useProductsTableState } from './useProductsTableState';
@@ -19,8 +19,6 @@ export interface ProductsTableViewModel {
   readonly sort: ProductSort | null;
   readonly page: Page<Product>;
   readonly status: 'pending' | 'error' | 'success';
-  /** True while new results load and the previous ones are still shown. */
-  readonly isUpdating: boolean;
   readonly error: Error | null;
   readonly setSearchTerm: (searchTerm: string) => void;
   readonly toggleSort: (field: ProductSortField) => void;
@@ -29,23 +27,24 @@ export interface ProductsTableViewModel {
 }
 
 /**
- * Orchestrates the products table. The server handles keyword search and sort;
- * the client narrows results to title matches and splits them into pages.
+ * Orchestrates the products table: fetches the catalogue once, then
+ * filters (debounced) → sorts → paginates entirely on the client.
  */
 export function useProductsTable(): ProductsTableViewModel {
   const { state, setSearchTerm, toggleSort, setPage } = useProductsTableState();
-  const debouncedSearch = useDebouncedValue(state.searchTerm.trim(), SEARCH_DEBOUNCE_MS);
+  const debouncedSearch = useDebouncedValue(state.searchTerm, SEARCH_DEBOUNCE_MS);
 
-  const params = useMemo<FetchProductsParams>(
-    () => ({ search: debouncedSearch, sort: state.sort }),
-    [debouncedSearch, state.sort],
-  );
-  const query = useProductsQuery(params);
+  const query = useProductsQuery();
   const products = query.data?.products ?? EMPTY_PRODUCTS;
 
+  // Separate memos so changing page never re-filters or re-sorts.
+  const visibleProducts = useMemo(
+    () => sortProducts(filterByTitle(products, debouncedSearch), state.sort),
+    [products, debouncedSearch, state.sort],
+  );
   const page = useMemo(
-    () => paginate(filterByTitle(products, debouncedSearch), state.page, PRODUCTS_PAGE_SIZE),
-    [products, debouncedSearch, state.page],
+    () => paginate(visibleProducts, state.page, PRODUCTS_PAGE_SIZE),
+    [visibleProducts, state.page],
   );
 
   return {
@@ -53,7 +52,6 @@ export function useProductsTable(): ProductsTableViewModel {
     sort: state.sort,
     page,
     status: query.status,
-    isUpdating: query.isPlaceholderData || debouncedSearch !== state.searchTerm.trim(),
     error: query.error,
     setSearchTerm,
     toggleSort,

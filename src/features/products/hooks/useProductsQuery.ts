@@ -1,14 +1,13 @@
-import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 
 import { productKeys } from '../api/productQueryKeys';
-import { fetchProducts, type FetchProductsParams } from '../api/productsApi';
+import { fetchProducts } from '../api/productsApi';
 import { type ProductsResponse } from '../types/product';
 
-export function useProductsQuery(params: FetchProductsParams): UseQueryResult<ProductsResponse> {
+/** Fetches the whole catalogue once; TanStack Query caches it for the session. */
+export function useProductsQuery(): UseQueryResult<ProductsResponse> {
   return useQuery({
-    queryKey: productKeys.list(params),
-    queryFn: ({ signal }) => fetchProducts(params, signal),
-    // Keep showing the current rows while a new search or sort loads.
-    placeholderData: keepPreviousData,
+    queryKey: productKeys.list(),
+    queryFn: ({ signal }) => fetchProducts(signal),
   });
 }

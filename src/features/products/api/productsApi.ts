@@ -1,11 +1,11 @@
 import { env } from '@/config/env';
 import { getJson } from '@/lib/http/httpClient';
 
-import { type Product, type ProductSort, type ProductsResponse } from '../types/product';
+import { type Product, type ProductsResponse } from '../types/product';
 
 import { isProductsResponse } from './productGuards';
 
-/** The API treats `limit=0` as "return every matching product". */
+/** The API treats `limit=0` as "return every product". */
 const ALL_RESULTS = 0;
 
 /** Only request the fields the UI needs. */
@@ -16,39 +16,17 @@ const PRODUCT_FIELDS = [
   'category',
 ] as const satisfies readonly (keyof Product)[];
 
-export interface FetchProductsParams {
-  /** Keyword search (the API matches title and description). */
-  readonly search: string;
-  readonly sort: ProductSort | null;
-  /** Page size; omit to fetch all matching products. */
-  readonly limit?: number;
-  readonly skip?: number;
-}
-
-export function buildProductsUrl(params: FetchProductsParams): URL {
-  const search = params.search.trim();
-  const path = search === '' ? '/products' : '/products/search';
-  const url = new URL(`${env.apiBaseUrl}${path}`);
-
-  if (search !== '') {
-    url.searchParams.set('q', search);
-  }
-  if (params.sort !== null) {
-    url.searchParams.set('sortBy', params.sort.field);
-    url.searchParams.set('order', params.sort.order);
-  }
-  url.searchParams.set('limit', String(params.limit ?? ALL_RESULTS));
-  if (params.skip !== undefined) {
-    url.searchParams.set('skip', String(params.skip));
-  }
+/**
+ * The full catalogue is small (~200 rows × 4 fields), so it is fetched once and
+ * searched, sorted and paginated on the client.
+ */
+export function buildProductsUrl(): URL {
+  const url = new URL(`${env.apiBaseUrl}/products`);
+  url.searchParams.set('limit', String(ALL_RESULTS));
   url.searchParams.set('select', PRODUCT_FIELDS.join(','));
-
   return url;
 }
 
-export function fetchProducts(
-  params: FetchProductsParams,
-  signal?: AbortSignal,
-): Promise<ProductsResponse> {
-  return getJson(buildProductsUrl(params), { guard: isProductsResponse, signal });
+export function fetchProducts(signal?: AbortSignal): Promise<ProductsResponse> {
+  return getJson(buildProductsUrl(), { guard: isProductsResponse, signal });
 }

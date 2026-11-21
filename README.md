@@ -26,16 +26,21 @@ Optional: copy `.env.example` to `.env.local` to point at a different API base U
 
 ## How search, sort and pagination work
 
-| Concern                | Where                           | Why                                                                 |
-| ---------------------- | ------------------------------- | ------------------------------------------------------------------- |
-| Keyword search         | Server (`/products/search?q=`)  | Narrows the dataset before it is downloaded                         |
-| Price sort             | Server (`sortBy=price&order=…`) | Sorting stays correct across all pages                              |
-| Title-only match       | Client (`filterByTitle`)        | The API also matches descriptions; the UI promises "search by name" |
-| Pagination (10 / page) | Client (`paginate`)             | Must run _after_ the title filter so page counts are accurate       |
+The catalogue is small (about 200 products), so the app fetches it **once** (`/products?limit=0&select=id,title,price,category`, about 10 KB). TanStack Query caches it, and everything else happens in the browser:
 
-Only `id,title,price,category` are requested, so fetching every match stays small. `fetchProducts` still accepts `limit`/`skip`, so you can switch to server-side pagination later.
+```
+products ──► filterByTitle (debounced 300 ms) ──► sortProducts ──► paginate (10 / page) ──► table
+```
 
-The search box updates immediately. Only the debounced value (300 ms) becomes part of the query key, so typing triggers one request after the user pauses. TanStack Query cancels requests that are no longer needed and keeps the previous rows visible while new ones load.
+| Step       | Function                                                               | Notes                                                            |
+| ---------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Search     | `features/products/utils/filterByTitle`                                | Case-insensitive "name contains"; runs 300 ms after typing stops |
+| Sort       | `features/products/utils/sortProducts` → `shared/utils/sort#sortItems` | Stable, never mutates its input; unsorted keeps API order        |
+| Pagination | `shared/utils/paginate`                                                | Clamps the page; search/sort changes reset to page 1             |
+
+Searching, sorting and paging never make a network request. Each step is a separate `useMemo`, so changing pages doesn't re-filter or re-sort.
+
+**If the catalogue grows large** (thousands of rows), move search, sort and paging back to the server. Only `productsApi.ts` and `useProductsTable.ts` need to change. The components and state reducer stay the same.
 
 ## Project structure
 

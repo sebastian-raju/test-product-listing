@@ -10,7 +10,6 @@ interface ProductsTableProps {
   readonly products: readonly Product[];
   readonly sort: ProductSort | null;
   readonly onSortChange: (field: ProductSortField) => void;
-  readonly isUpdating: boolean;
 }
 
 const getProductKey = (product: Product): number => product.id;
@@ -23,12 +22,7 @@ function describeSort(sort: ProductSort | null): string {
   return `Products, sorted by ${sort.field} ${direction}`;
 }
 
-export function ProductsTable({
-  products,
-  sort,
-  onSortChange,
-  isUpdating,
-}: ProductsTableProps): JSX.Element {
+export function ProductsTable({ products, sort, onSortChange }: ProductsTableProps): JSX.Element {
   return (
     <DataTable
       caption={describeSort(sort)}
@@ -37,7 +31,6 @@ export function ProductsTable({
       getRowKey={getProductKey}
       sort={sort}
       onSortChange={onSortChange}
-      isBusy={isUpdating}
     />
   );
 }
